@@ -9,42 +9,39 @@ namespace DuplicateDrugIdentifier
     {
         static void Main()
         {
-            char csvDelimiter = '\'';
+            //****Update Accordingly****//
+            const char csvDelimiter = ',';
+            const string drugNameColumnName = "Description";
+            //*************************//
+
+            List<List<string>> entries;
+            int drugNameIndex;
             string filePath;
 
             filePath = GetFilePath();
 
-            if (filePath.EndsWith(".csv"))
-            {
-                List<List<string>> csvEntries;
+            entries = filePath.Contains(".csv") ? GetCSVEntries(filePath, csvDelimiter) : GetExcelEntries(filePath);
 
-                csvEntries = GetCSVEntries(filePath, csvDelimiter);
-            }
-            else
-            {
-                Application excel;
-                Workbook workbook;
-                Worksheet worksheet;
+            drugNameIndex = entries[0].FindIndex(entry => entry.Equals(drugNameColumnName));
 
-                excel = new Application();
-                workbook = excel.Workbooks.Open(filePath);
-                worksheet = workbook.ActiveSheet();
+            // TODO - String matching (split description into name, quantity etc.)
 
-                // Excel scraper
-            }
+            // TODO - Put description into data structure
 
-            // String matching etc.
+            // TODO - String matching (find drugs w/ same name & quantity)
         }
 
         private static string GetFilePath()
         {
             Console.WriteLine("Please drag and drop file into command window & press Enter: ");
-            return Console.ReadLine();
+            return Console.ReadLine().Replace("\"", string.Empty);
         }
 
         private static List<List<string>> GetCSVEntries(string filePath, char csvDelimiter)
         {
-            List<List<string>> entries = new List<List<string>>();
+            List<List<string>> entries;
+
+            entries = new List<List<string>>();
 
             using (StreamReader streamReader = new StreamReader(filePath))
             {
@@ -57,6 +54,46 @@ namespace DuplicateDrugIdentifier
                     entries.Add(entry);
                 }
             }
+
+            return entries;
+        }
+
+        private static List<List<string>> GetExcelEntries(string filePath)
+        {
+            List<List<string>> entries;
+            Application excel;
+            Workbook workbook;
+            Worksheet worksheet;
+            int numRows;
+            int numColumns;
+
+            entries = new List<List<string>>();
+
+            excel = new Application();
+            workbook = excel.Workbooks.Open(filePath);
+            worksheet = workbook.ActiveSheet;
+
+            numRows = worksheet.UsedRange.Rows.Count;
+            numColumns = worksheet.UsedRange.Columns.Count;
+
+            for (int i = 1; i <= numRows; i++)
+            {
+                List<string> entry = new List<string>();
+
+                for (int j = 1; j <= numColumns; j++)
+                {
+                    string value;
+
+                    value = worksheet.Cells[i, j].Value != null ? worksheet.Cells[i, j].Value.ToString() : string.Empty;
+
+                    entry.Add(value);
+                }
+
+                entries.Add(entry);
+            }
+
+            workbook.Close();
+            excel.Quit();
 
             return entries;
         }
