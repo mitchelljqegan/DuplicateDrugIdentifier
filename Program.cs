@@ -1,5 +1,4 @@
-﻿using Microsoft.Office.Interop.Excel;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -7,22 +6,40 @@ namespace DuplicateDrugIdentifier
 {
     class Program
     {
+        enum Index : int
+        {
+            ItemCode = 0,
+            Description = 1,
+            PrimarySupplier = 2,
+            PrimarySupplierProductCode = 3,
+            Barcode = 4,
+            ProductGroup = 5,
+            ProductGroupName = 6,
+            RetailPrice = 7,
+            QtyOnHand = 8,
+            QtyOnOrder = 9,
+            CreationDate = 10,
+            Status = 11,
+            LastSellPriceChange = 12
+        }
+
         static void Main()
         {
-            //****Update Accordingly****//
-            const char csvDelimiter = ',';
-            const string drugNameColumnName = "Description";
-            //*************************//
+            const char delimiter = '\t';
 
             List<List<string>> entries;
-            int drugNameIndex;
             string filePath;
 
             filePath = GetFilePath();
 
-            entries = filePath.Contains(".csv") ? GetCSVEntries(filePath, csvDelimiter) : GetExcelEntries(filePath);
+            entries = GetEntries(filePath, delimiter);
 
-            drugNameIndex = entries[0].FindIndex(entry => entry.Equals(drugNameColumnName));
+            foreach (List<string> entry in entries)
+            {
+                Console.WriteLine(entry[(int)Index.Description]);
+            }
+
+            Console.ReadLine();
 
             // TODO - String matching (split description into name, quantity etc.)
 
@@ -37,7 +54,7 @@ namespace DuplicateDrugIdentifier
             return Console.ReadLine().Replace("\"", string.Empty);
         }
 
-        private static List<List<string>> GetCSVEntries(string filePath, char csvDelimiter)
+        private static List<List<string>> GetEntries(string filePath, char delimiter)
         {
             List<List<string>> entries;
 
@@ -48,52 +65,18 @@ namespace DuplicateDrugIdentifier
                 while (!streamReader.EndOfStream)
                 {
                     string line = streamReader.ReadLine();
-                    string[] values = line.Split(csvDelimiter);
+                    string[] values = line.Split(delimiter);
+
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        values[i] = values[i].Replace("\"", "");
+                    }
+
                     List<string> entry = new List<string>(values);
 
                     entries.Add(entry);
                 }
             }
-
-            return entries;
-        }
-
-        private static List<List<string>> GetExcelEntries(string filePath)
-        {
-            List<List<string>> entries;
-            Application excel;
-            Workbook workbook;
-            Worksheet worksheet;
-            int numRows;
-            int numColumns;
-
-            entries = new List<List<string>>();
-
-            excel = new Application();
-            workbook = excel.Workbooks.Open(filePath);
-            worksheet = workbook.ActiveSheet;
-
-            numRows = worksheet.UsedRange.Rows.Count;
-            numColumns = worksheet.UsedRange.Columns.Count;
-
-            for (int i = 1; i <= numRows; i++)
-            {
-                List<string> entry = new List<string>();
-
-                for (int j = 1; j <= numColumns; j++)
-                {
-                    string value;
-
-                    value = worksheet.Cells[i, j].Value != null ? worksheet.Cells[i, j].Value.ToString() : string.Empty;
-
-                    entry.Add(value);
-                }
-
-                entries.Add(entry);
-            }
-
-            workbook.Close();
-            excel.Quit();
 
             return entries;
         }
