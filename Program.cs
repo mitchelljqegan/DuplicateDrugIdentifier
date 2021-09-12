@@ -1,81 +1,18 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace DuplicateDrugIdentifier
 {
-    public class Entry
-    {
-        public string ItemCode { get; set; }
-        public string Description { get; set; }
-        public string PrimarySupplier { get; set; }
-        public string PrimarySupplierProductCode { get; set; }
-        public string Barcode { get; set; }
-        public string ProductGroup { get; set; }
-        public string ProductGroupName { get; set; }
-        public double? RetailPrice { get; set; }
-        public double QtyOnHand { get; set; }
-        public int QtyOnOrder { get; set; }
-        public DateTime? CreationDate { get; set; }
-        public string Status { get; set; }
-        public DateTime? LastSellPriceChange { get; set; }
-
-        public Entry(string[] values)
-        {
-
-            ItemCode = values[0];
-            Description = values[1];
-            PrimarySupplier = values[2];
-            PrimarySupplierProductCode = values[3];
-            Barcode = values[4];
-            ProductGroup = values[5];
-            ProductGroupName = values[6];
-
-            if (double.TryParse(values[7], out double retailPrice))
-            {
-                RetailPrice = retailPrice;
-            }
-            else
-            {
-                RetailPrice = null;
-            }
-
-            QtyOnHand = double.Parse(values[8]);
-            QtyOnOrder = int.Parse(values[9]);
-
-            if (DateTime.TryParse(values[10], out DateTime creationDate))
-            {
-                CreationDate = creationDate;
-            }
-            else
-            {
-                CreationDate = null;
-            }
-
-            Status = values[11];
-
-            if (DateTime.TryParse(values[12], out DateTime lastSellPriceChange))
-            {
-                LastSellPriceChange = lastSellPriceChange;
-            }
-            else
-            {
-                LastSellPriceChange = null;
-            }
-        }
-    }
-
     class Program
     {
-        const int apiqIndex = 0;
-        const int sigmaIndex = 1;
-
+        // Use Release configuaration for best performance
         static void Main()
         {
-            List<List<Entry>> entries;
+            List<Entry> entries;
             string filePath;
             StringBuilder csv;
 
@@ -83,44 +20,19 @@ namespace DuplicateDrugIdentifier
             entries = GetEntries(filePath);
             csv = new StringBuilder();
 
-            csv.AppendLine("SIGMA, APIQ, Similarity (Less = Closer)");
-
-            foreach (Entry sigmaEntry in entries[sigmaIndex])
-            {
-                int minDistance = int.MaxValue;
-                string closest = "";
-
-                foreach (Entry apiqEntry in entries[apiqIndex])
-                {
-                    int distance = LevenshteinDistance(sigmaEntry.Description, apiqEntry.Description);
-
-                    if (distance < minDistance)
-                    {
-                        minDistance = distance;
-                        closest = apiqEntry.Description;
-                    }
-                }
-
-                csv.AppendLine(string.Format("{0}, {1}, {2}", sigmaEntry.Description, closest, minDistance));
-            }
-
-            File.WriteAllText("result.csv", csv.ToString());
+            //FindOutputClosestMatches(csv, entries);
+            FindPermutations(entries);
         }
 
         private static string GetFilePath()
         {
-            Console.WriteLine("Please drag and drop file into command window & press Enter: ");
+            Console.WriteLine("Please drag and drop file into command window and press Enter: ");
             return Console.ReadLine().Replace("\"", string.Empty);
         }
 
-        private static List<List<Entry>> GetEntries(string filePath)
+        private static List<Entry> GetEntries(string filePath)
         {
-            List<List<Entry>> entries = new List<List<Entry>>();
-
-            for (int i = 0; i < 2; i++)
-            {
-                entries.Add(new List<Entry>());
-            }
+            List<Entry> entries = new List<Entry>();
 
             using (StreamReader streamReader = new StreamReader(filePath))
             {
@@ -138,21 +50,58 @@ namespace DuplicateDrugIdentifier
 
                     Entry entry = new Entry(values);
 
-                    if (entry.PrimarySupplier.Contains("APIQ"))
-                    {
-                        entries[apiqIndex].Add(entry);
-                    }
-                    else
-                    {
-                        entries[sigmaIndex].Add(entry);
-                    }
+                    entries.Add(entry);
                 }
             }
 
             return entries;
         }
 
-        static int LevenshteinDistance(string s, string t)
+        private static void FindOutputClosestMatches(StringBuilder csv, List<Entry> entries)
+        {
+            csv.AppendLine("ItemCode, Description, PrimarySupplier, PrimarySupplierProductCode, Barcode, ProductGroup, ProductGroupName, RetailPrice, QtyOnHand, QtyOnOrder, CreationDate, Status, LastSellPriceChange, No. Differences");
+
+            Parallel.ForEach(entries.Cast<Entry>(), subject =>
+            {
+                int minDistance;
+                List<Entry> comparands;
+                List<Entry> matches;
+                string closest;
+
+                comparands = new List<Entry>(entries);
+                comparands.Remove(subject);
+
+                minDistance = int.MaxValue;
+                closest = "";
+
+                Parallel.ForEach(comparands.Cast<Entry>(), comparand =>
+                {
+                    int distance;
+
+                    distance = LevenshteinDistance(subject.Description, comparand.Description);
+
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closest = comparand.Description;
+                    }
+                });
+
+                matches = comparands.FindAll(comparand => comparand.Description.Equals(closest));
+
+                csv.AppendLine(string.Format("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}", subject.ItemCode, subject.Description, subject.PrimarySupplier, subject.PrimarySupplierProductCode, subject.Barcode, subject.ProductGroup, subject.ProductGroupName, subject.RetailPrice, subject.QtyOnHand, subject.QtyOnOrder, subject.CreationDate, subject.Status, subject.LastSellPriceChange, minDistance));
+
+                Parallel.ForEach(matches.Cast<Entry>(), match =>
+                {
+                    csv.AppendLine(string.Format("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}", match.ItemCode, match.Description, match.PrimarySupplier, match.PrimarySupplierProductCode, match.Barcode, match.ProductGroup, match.ProductGroupName, match.RetailPrice, match.QtyOnHand, match.QtyOnOrder, match.CreationDate, match.Status, match.LastSellPriceChange, minDistance));
+                });
+            });
+
+            File.WriteAllText("result.csv", csv.ToString()); // File output to bin\*Configuration*\result.csv
+        }
+
+        // Code adapted from https://rosettacode.org/wiki/Levenshtein_distance#C.23
+        private static int LevenshteinDistance(string s, string t)
         {
             int n = s.Length;
             int m = t.Length;
@@ -186,31 +135,22 @@ namespace DuplicateDrugIdentifier
             return d[n, m];
         }
 
-        private static List<string> GetDescriptions(List<List<string>> entries)
-        {
-            List<string> Descriptions = new List<string>();
-            foreach (List<string> entry in entries)
-            {
-                Descriptions.Add(entry[(int)Index.Description]);
-            }
-            return Descriptions;
-        }
-        private static (List<int[]>, List<string[]>) FindPermutations(List<List<string>> entries)
+        private static (List<int[]>, List<string[]>) FindPermutations(List<Entry> entries)
         {
             List<string[]> output = new List<string[]>();
             List<int[]> index = new List<int[]>();
-            List<string> Descriptions;
-            Descriptions = GetDescriptions(entries);
-            for (int i = 0; i < Descriptions.Count; i++)
+
+            for (int i = 0; i < entries.Count; i++)
             {
-                string[] words = Descriptions[i].Split(' ');
+                string[] words = entries[i].Description.Split(' ');
                 words = words.Where(val => val != " ").ToArray();
-                List<string> wordsL = words.ToList<string>();
-                for (int j = i + 1; j < Descriptions.Count; j++)
+                List<string> wordsL = words.ToList();
+
+                for (int j = i + 1; j < entries.Count; j++)
                 {
-                    string[] other_words = Descriptions[j].Split(' ');
+                    string[] other_words = entries[j].Description.Split(' ');
                     other_words = other_words.Where(val => val != "").ToArray();
-                    List<string> other_wordsL = other_words.ToList<string>();
+                    List<string> other_wordsL = other_words.ToList();
                     if (words[0] == other_words[0])
                     {
                         bool found = false;
@@ -231,17 +171,17 @@ namespace DuplicateDrugIdentifier
                         wordsL.Add("CAPS");
                         wordsL.Add("CAPSULE");
                         wordsL.Add("CAPSULES");
-                        if (!other_wordsL.Except(wordsL).Any()) {found = true;}
+                        if (!other_wordsL.Except(wordsL).Any()) { found = true; }
                         if (found)
                         {
                             Console.WriteLine(string.Join(" ", words) + " = " + string.Join(" ", other_words));
-                            index.Add(new int[] {i, j});
-                            output.Add(new string[]{ string.Join(" ", words), string.Join(" ", other_words) });
+                            index.Add(new int[] { i, j });
+                            output.Add(new string[] { string.Join(" ", words), string.Join(" ", other_words) });
                         }
                     }
                 }
             }
-            return (index,output);
+            return (index, output);
         }
         public static bool ScrambledEquals<T>(IEnumerable<T> list1, IEnumerable<T> list2)
         {
