@@ -118,7 +118,7 @@ namespace DuplicateDrugIdentifier
                     if (words[0] == other_words[0])
                     {
                         bool found = false;
-                        //if (ScrambledEquals(wordsL, other_wordsL)){found = true;}
+                        if (ScrambledEquals(wordsL, other_wordsL)){found = true;}
                         wordsL.Add("NEW");
                         wordsL.Add("TABLET");
                         wordsL.Add("TAB");
