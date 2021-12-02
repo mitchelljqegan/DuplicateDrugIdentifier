@@ -21,7 +21,14 @@ namespace DuplicateItemIdentifier
             csv = new StringBuilder();
 
             //FindOutputClosestMatches(csv, entries);
-            FindPermutations(entries);
+            List<int[]> index;
+            List<string[]> output;
+            (index, output) =FindPermutations(entries);
+            for (int i = 0; i < index.Count(); i++)
+            {
+                Console.WriteLine(index[i][0] + "," + output[i][0] + "," + index[i][1] + "," + output[i][1] + "," + output[i][2]);
+            }
+            Console.ReadLine();
         }
 
         private static string GetFilePath()
@@ -143,7 +150,7 @@ namespace DuplicateItemIdentifier
             for (int i = 0; i < entries.Count; i++)
             {
                 string[] words = entries[i].Description.Split(' ');
-                words = words.Where(val => val != " ").ToArray();
+                words = words.Where(val => val != "").ToArray();
                 List<string> wordsL = words.ToList();
 
                 for (int j = i + 1; j < entries.Count; j++)
@@ -172,11 +179,67 @@ namespace DuplicateItemIdentifier
                         wordsL.Add("CAPSULE");
                         wordsL.Add("CAPSULES");
                         if (!other_wordsL.Except(wordsL).Any()) { found = true; }
+                        wordsL.Remove("NEW");
+                        wordsL.Remove("TABLET");
+                        wordsL.Remove("TAB");
+                        wordsL.Remove("TABS");
+                        wordsL.Remove("BL");
+                        wordsL.Remove("BT");
+                        wordsL.Remove("BP");
+                        wordsL.Remove("BLS");
+                        wordsL.Remove("BLST");
+                        wordsL.Remove("BLSTR");
+                        wordsL.Remove("BLISTER");
+                        wordsL.Remove("PACK");
+                        wordsL.Remove("CAP");
+                        wordsL.Remove("CAPS");
+                        wordsL.Remove("CAPSULE");
+                        wordsL.Remove("CAPSULES");
+                        other_wordsL.Add("NEW");
+                        other_wordsL.Add("TABLET");
+                        other_wordsL.Add("TAB");
+                        other_wordsL.Add("TABS");
+                        other_wordsL.Add("BL");
+                        other_wordsL.Add("BT");
+                        other_wordsL.Add("BP");
+                        other_wordsL.Add("BLS");
+                        other_wordsL.Add("BLST");
+                        other_wordsL.Add("BLSTR");
+                        other_wordsL.Add("BLISTER");
+                        other_wordsL.Add("PACK");
+                        other_wordsL.Add("CAP");
+                        other_wordsL.Add("CAPS");
+                        other_wordsL.Add("CAPSULE");
+                        other_wordsL.Add("CAPSULES");
+                        if (!wordsL.Except(other_wordsL).Any()) { found = true; }
+                        other_wordsL.Remove("NEW");
+                        other_wordsL.Remove("TABLET");
+                        other_wordsL.Remove("TAB");
+                        other_wordsL.Remove("TABS");
+                        other_wordsL.Remove("BL");
+                        other_wordsL.Remove("BT");
+                        other_wordsL.Remove("BP");
+                        other_wordsL.Remove("BLS");
+                        other_wordsL.Remove("BLST");
+                        other_wordsL.Remove("BLSTR");
+                        other_wordsL.Remove("BLISTER");
+                        other_wordsL.Remove("PACK");
+                        other_wordsL.Remove("CAP");
+                        other_wordsL.Remove("CAPS");
+                        other_wordsL.Remove("CAPSULE");
+                        other_wordsL.Remove("CAPSULES");
                         if (found)
                         {
-                            Console.WriteLine(string.Join(" ", words) + " = " + string.Join(" ", other_words));
+                            IEnumerable<string> a = wordsL.Intersect(other_wordsL);
+                            int b = a.Count();
+                            int c = wordsL.Count();
+                            int d = other_wordsL.Count();
+
+                            double comp = (double)b/((double)(c+d)/2)*100;
+
+                            Console.WriteLine(string.Join(" ", words) + " = " + string.Join(" ", other_words)+", %"+comp);
                             index.Add(new int[] { i, j });
-                            output.Add(new string[] { string.Join(" ", words), string.Join(" ", other_words) });
+                            output.Add(new string[] { string.Join(" ", entries[i].Description), string.Join(" ", entries[j].Description), comp.ToString() });
                         }
                     }
                 }
