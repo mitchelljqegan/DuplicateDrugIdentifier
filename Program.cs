@@ -9,247 +9,194 @@ namespace DuplicateItemIdentifier
 {
     class Program
     {
-        // Use Release configuaration for best performance
-        static void Main()
+        private static void Main()
         {
-            List<Entry> entries;
-            string filePath;
-            StringBuilder csv;
-
-            filePath = GetFilePath();
-            entries = GetEntries(filePath);
-            csv = new StringBuilder();
-
-            //FindOutputClosestMatches(csv, entries);
-            List<int[]> index;
-            List<string[]> output;
-            (index, output) =FindPermutations(entries);
-            for (int i = 0; i < index.Count(); i++)
+            try
             {
-                Console.WriteLine(index[i][0] + "," + output[i][0] + "," + index[i][1] + "," + output[i][1] + "," + output[i][2]);
+                string filePath = GetFilePath();
+                List<Entry> entries = GetEntries(filePath);
+                List<string[]> output = FindPermutations(entries);
+                SaveResults(output);
             }
-            Console.ReadLine();
+            catch (Exception)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("An unexpected error occurred. Please start the program again.");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.ReadKey();
+                Environment.Exit(1);
+            }
         }
 
+        /// <summary>
+        /// Prompts user for, and gets the file path of database file.
+        /// </summary>
+        /// <returns>Database file path as string.</returns>
         private static string GetFilePath()
         {
             Console.WriteLine("Please drag and drop file into command window and press Enter: ");
             return Console.ReadLine().Replace("\"", string.Empty);
         }
 
+        /// <summary>
+        /// Extracts the database entries from the database file. 
+        /// </summary>
+        /// <param name="filePath">File path of database file as string.</param>
+        /// <returns>List of database entries.</returns>
         private static List<Entry> GetEntries(string filePath)
         {
             List<Entry> entries = new List<Entry>();
 
-            using (StreamReader streamReader = new StreamReader(filePath))
+            try
             {
-                streamReader.ReadLine();
-
-                while (!streamReader.EndOfStream)
+                using (StreamReader streamReader = new StreamReader(filePath))
                 {
-                    string line = streamReader.ReadLine();
-                    string[] values = line.Split('\t');
+                    streamReader.ReadLine();
 
-                    for (int i = 0; i < values.Length; i++)
+                    while (!streamReader.EndOfStream)
                     {
-                        values[i] = values[i].Replace("\"", "");
+                        string line = streamReader.ReadLine();
+                        string[] values = line.Split('\t');
+
+                        for (int i = 0; i < values.Length; i++)
+                        {
+                            values[i] = values[i].Replace("\"", "");
+                        }
+
+                        Entry entry = new Entry(values);
+                        entries.Add(entry);
                     }
-
-                    Entry entry = new Entry(values);
-
-                    entries.Add(entry);
                 }
+            }
+            catch (Exception)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The database entries could not be retrieved. Please start the program again and ensure the correct file is provided and that it is in the correct format.");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.ReadKey();
+                Environment.Exit(1);
             }
 
             return entries;
         }
 
-        private static void FindOutputClosestMatches(StringBuilder csv, List<Entry> entries)
+        /// <summary>
+        /// Finds permutations of database entries. Additional common words found in database entries are used to also find entries that are similar, but not exact permutations.
+        /// </summary>
+        /// <param name="entries">Database entries.</param>
+        /// <returns>List of string arrays, which contain the matching entries' item codes, descriptions and their percentage similarity.</returns>
+        private static List<string[]> FindPermutations(List<Entry> entries)
         {
-            csv.AppendLine("ItemCode, Description, PrimarySupplier, PrimarySupplierProductCode, Barcode, ProductGroup, ProductGroupName, RetailPrice, QtyOnHand, QtyOnOrder, CreationDate, Status, LastSellPriceChange, No. Differences");
-
-            Parallel.ForEach(entries.Cast<Entry>(), subject =>
-            {
-                int minDistance;
-                List<Entry> comparands;
-                List<Entry> matches;
-                string closest;
-
-                comparands = new List<Entry>(entries);
-                comparands.Remove(subject);
-
-                minDistance = int.MaxValue;
-                closest = "";
-
-                Parallel.ForEach(comparands.Cast<Entry>(), comparand =>
-                {
-                    int distance;
-
-                    distance = LevenshteinDistance(subject.Description, comparand.Description);
-
-                    if (distance < minDistance)
-                    {
-                        minDistance = distance;
-                        closest = comparand.Description;
-                    }
-                });
-
-                matches = comparands.FindAll(comparand => comparand.Description.Equals(closest));
-
-                csv.AppendLine(string.Format("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}", subject.ItemCode, subject.Description, subject.PrimarySupplier, subject.PrimarySupplierProductCode, subject.Barcode, subject.ProductGroup, subject.ProductGroupName, subject.RetailPrice, subject.QtyOnHand, subject.QtyOnOrder, subject.CreationDate, subject.Status, subject.LastSellPriceChange, minDistance));
-
-                Parallel.ForEach(matches.Cast<Entry>(), match =>
-                {
-                    csv.AppendLine(string.Format("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}", match.ItemCode, match.Description, match.PrimarySupplier, match.PrimarySupplierProductCode, match.Barcode, match.ProductGroup, match.ProductGroupName, match.RetailPrice, match.QtyOnHand, match.QtyOnOrder, match.CreationDate, match.Status, match.LastSellPriceChange, minDistance));
-                });
-            });
-
-            File.WriteAllText("result.csv", csv.ToString()); // File output to bin\*Configuration*\result.csv
-        }
-
-        // Code adapted from https://rosettacode.org/wiki/Levenshtein_distance#C.23
-        private static int LevenshteinDistance(string s, string t)
-        {
-            int n = s.Length;
-            int m = t.Length;
-            int[,] d = new int[n + 1, m + 1];
-
-            if (n == 0)
-            {
-                return m;
-            }
-
-            if (m == 0)
-            {
-                return n;
-            }
-
-            for (int i = 0; i <= n; i++)
-                d[i, 0] = i;
-            for (int j = 0; j <= m; j++)
-                d[0, j] = j;
-
-            for (int j = 1; j <= m; j++)
-                for (int i = 1; i <= n; i++)
-                    if (s[i - 1] == t[j - 1])
-                        d[i, j] = d[i - 1, j - 1];  //no operation
-                    else
-                        d[i, j] = Math.Min(Math.Min(
-                            d[i - 1, j] + 1,    //a deletion
-                            d[i, j - 1] + 1),   //an insertion
-                            d[i - 1, j - 1] + 1 //a substitution
-                            );
-            return d[n, m];
-        }
-
-        private static (List<int[]>, List<string[]>) FindPermutations(List<Entry> entries)
-        {
+            int iteration = 0;
             List<string[]> output = new List<string[]>();
-            List<int[]> index = new List<int[]>();
-
-            for (int i = 0; i < entries.Count; i++)
+            object progressLock = new object();
+            string[] additionalWords = new string[]
             {
-                string[] words = entries[i].Description.Split(' ');
-                words = words.Where(val => val != "").ToArray();
-                List<string> wordsL = words.ToList();
+                "NEW",
+                "TABLET",
+                "TAB",
+                "TABS",
+                "BL",
+                "BT",
+                "BP",
+                "BLS",
+                "BLST",
+                "BLSTR",
+                "BLISTER",
+                "PACK",
+                "CAP",
+                "CAPS",
+                "CAPSULE",
+                "CAPSULES"
+            };
+
+            Console.WriteLine();
+            Parallel.For(0, entries.Count, i =>
+            {
+                List<string> entryWords = entries[i].Description.Split(' ').ToList();
+                entryWords.RemoveAll(entryWord => entryWord.Equals(string.Empty));
 
                 for (int j = i + 1; j < entries.Count; j++)
                 {
-                    string[] other_words = entries[j].Description.Split(' ');
-                    other_words = other_words.Where(val => val != "").ToArray();
-                    List<string> other_wordsL = other_words.ToList();
-                    if (words[0] == other_words[0])
+                    bool found = false;
+                    List<string> comparandWords;
+
+                    comparandWords = entries[j].Description.Split(' ').ToList();
+                    comparandWords.RemoveAll(comparandWord => comparandWord.Equals(string.Empty));
+
+                    if (ScrambledEquals(entryWords, comparandWords))
                     {
-                        bool found = false;
-                        if (ScrambledEquals(wordsL, other_wordsL)){found = true;}
-                        wordsL.Add("NEW");
-                        wordsL.Add("TABLET");
-                        wordsL.Add("TAB");
-                        wordsL.Add("TABS");
-                        wordsL.Add("BL");
-                        wordsL.Add("BT");
-                        wordsL.Add("BP");
-                        wordsL.Add("BLS");
-                        wordsL.Add("BLST");
-                        wordsL.Add("BLSTR");
-                        wordsL.Add("BLISTER");
-                        wordsL.Add("PACK");
-                        wordsL.Add("CAP");
-                        wordsL.Add("CAPS");
-                        wordsL.Add("CAPSULE");
-                        wordsL.Add("CAPSULES");
-                        if (!other_wordsL.Except(wordsL).Any()) { found = true; }
-                        wordsL.Remove("NEW");
-                        wordsL.Remove("TABLET");
-                        wordsL.Remove("TAB");
-                        wordsL.Remove("TABS");
-                        wordsL.Remove("BL");
-                        wordsL.Remove("BT");
-                        wordsL.Remove("BP");
-                        wordsL.Remove("BLS");
-                        wordsL.Remove("BLST");
-                        wordsL.Remove("BLSTR");
-                        wordsL.Remove("BLISTER");
-                        wordsL.Remove("PACK");
-                        wordsL.Remove("CAP");
-                        wordsL.Remove("CAPS");
-                        wordsL.Remove("CAPSULE");
-                        wordsL.Remove("CAPSULES");
-                        other_wordsL.Add("NEW");
-                        other_wordsL.Add("TABLET");
-                        other_wordsL.Add("TAB");
-                        other_wordsL.Add("TABS");
-                        other_wordsL.Add("BL");
-                        other_wordsL.Add("BT");
-                        other_wordsL.Add("BP");
-                        other_wordsL.Add("BLS");
-                        other_wordsL.Add("BLST");
-                        other_wordsL.Add("BLSTR");
-                        other_wordsL.Add("BLISTER");
-                        other_wordsL.Add("PACK");
-                        other_wordsL.Add("CAP");
-                        other_wordsL.Add("CAPS");
-                        other_wordsL.Add("CAPSULE");
-                        other_wordsL.Add("CAPSULES");
-                        if (!wordsL.Except(other_wordsL).Any()) { found = true; }
-                        other_wordsL.Remove("NEW");
-                        other_wordsL.Remove("TABLET");
-                        other_wordsL.Remove("TAB");
-                        other_wordsL.Remove("TABS");
-                        other_wordsL.Remove("BL");
-                        other_wordsL.Remove("BT");
-                        other_wordsL.Remove("BP");
-                        other_wordsL.Remove("BLS");
-                        other_wordsL.Remove("BLST");
-                        other_wordsL.Remove("BLSTR");
-                        other_wordsL.Remove("BLISTER");
-                        other_wordsL.Remove("PACK");
-                        other_wordsL.Remove("CAP");
-                        other_wordsL.Remove("CAPS");
-                        other_wordsL.Remove("CAPSULE");
-                        other_wordsL.Remove("CAPSULES");
-                        if (found)
+                        found = true;
+                    }
+                    else
+                    {
+                        entryWords.AddRange(additionalWords);
+
+                        if (!comparandWords.Except(entryWords).Any())
                         {
-                            IEnumerable<string> a = wordsL.Intersect(other_wordsL);
-                            int b = a.Count();
-                            int c = wordsL.Count();
-                            int d = other_wordsL.Count();
+                            found = true;
 
-                            double comp = (double)b/((double)(c+d)/2)*100;
+                            foreach (string additionalWord in additionalWords)
+                            {
+                                entryWords.RemoveAll(entryWord => entryWord.Equals(additionalWord));
+                            }
+                        }
+                        else
+                        {
+                            foreach (string additionalWord in additionalWords)
+                            {
+                                entryWords.RemoveAll(entryWord => entryWord.Equals(additionalWord));
+                            }
 
-                            Console.WriteLine(string.Join(" ", words) + " = " + string.Join(" ", other_words)+", %"+comp);
-                            index.Add(new int[] { i, j });
-                            output.Add(new string[] { string.Join(" ", entries[i].Description), string.Join(" ", entries[j].Description), comp.ToString() });
+                            comparandWords.AddRange(additionalWords);
+
+                            if (!entryWords.Except(comparandWords).Any())
+                            {
+                                found = true;
+
+                                foreach (string additionalWord in additionalWords)
+                                {
+                                    comparandWords.RemoveAll(comparandWord => comparandWord.Equals(additionalWord));
+                                }
+                            }
+
+                            foreach (string additionalWord in additionalWords)
+                            {
+                                comparandWords.RemoveAll(comparandWord => comparandWord.Equals(additionalWord));
+                            }
                         }
                     }
+
+                    if (found)
+                    {
+                        int numMatchingWords = entryWords.Intersect(comparandWords).Count();
+                        int totalWords = entryWords.Union(comparandWords).Count();
+
+                        double similarity = (double)numMatchingWords / totalWords * 100;
+
+                        output.Add(new string[] { entries[i].ItemCode, entries[i].Description, entries[j].ItemCode, entries[j].Description, similarity.ToString() });
+                    }
                 }
-            }
-            return (index, output);
+
+                lock (progressLock)
+                {
+                    Console.Write("\r{0:0.00}% complete...", (double)++iteration / entries.Count * 100);
+                }
+            });
+
+            return output;
         }
-        public static bool ScrambledEquals<T>(IEnumerable<T> list1, IEnumerable<T> list2)
+
+        /// <summary>
+        /// Compares two Lists for equality regardless of ordering. Adapted from https://stackoverflow.com/a/3670089.
+        /// </summary>
+        /// <param name="list1">The first List to be compared.</param>
+        /// <param name="list2">The second List to be compared.</param>
+        /// <returns>True if the Lists are equal, otherwise False.</returns>
+        private static bool ScrambledEquals(List<string> list1, List<string> list2)
         {
-            var cnt = new Dictionary<T, int>();
-            foreach (T s in list1)
+            var cnt = new Dictionary<string, int>();
+            foreach (string s in list1)
             {
                 if (cnt.ContainsKey(s))
                 {
@@ -260,7 +207,7 @@ namespace DuplicateItemIdentifier
                     cnt.Add(s, 1);
                 }
             }
-            foreach (T s in list2)
+            foreach (string s in list2)
             {
                 if (cnt.ContainsKey(s))
                 {
@@ -272,6 +219,40 @@ namespace DuplicateItemIdentifier
                 }
             }
             return cnt.Values.All(c => c == 0);
+        }
+
+        /// <summary>
+        /// Saves the permutations found to a .csv file.
+        /// </summary>
+        /// <param name="output">List of string arrays, which contain the matching entries' item codes, descriptions and their percentage similarity.</param>
+        private static void SaveResults(List<string[]> output)
+        {
+            try
+            {
+                StringBuilder csv = new StringBuilder();
+
+                string newLine = "ItemCode1, Description1, ItemCode2, Description2, Similarity (%)";
+                csv.AppendLine(newLine);
+
+                for (int i = 0; i < output.Count(); i++)
+                {
+                    newLine = string.Format("{0},{1},{2},{3},{4}", output[i][0], output[i][1], output[i][2], output[i][3], output[i][4]);
+                    csv.AppendLine(newLine);
+                }
+
+                File.WriteAllText("Permutations.csv", csv.ToString());
+
+                Console.WriteLine("\n\nResults written to file \"Permutations.csv\". Press any key to close.");
+                Console.ReadKey();
+            }
+            catch (Exception)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Program output could not be saved. Please start the program again and ensure a previous version of the file isn't open.");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.ReadKey();
+                Environment.Exit(1);
+            }
         }
     }
 }
