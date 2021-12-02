@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DuplicateDrugIdentifier
+namespace DuplicateItemIdentifier
 {
     public class Entry
     {
