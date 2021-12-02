@@ -2,6 +2,9 @@
 
 namespace DuplicateItemIdentifier
 {
+    /// <summary>
+    /// Data type for each database entry.
+    /// </summary>
     public class Entry
     {
         public string ItemCode { get; set; }
@@ -18,6 +21,11 @@ namespace DuplicateItemIdentifier
         public string Status { get; set; }
         public DateTime? LastSellPriceChange { get; set; }
 
+
+        /// <summary>
+        /// Entry constructor, assigns column values to their corresponding fields and handles null values where appropriate.
+        /// </summary>
+        /// <param name="values">String array containing the values of a single database entry.</param>
         public Entry(string[] values)
         {
 
